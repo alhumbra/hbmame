@@ -22,6 +22,8 @@ The multigame roms:
 #include "speaker.h"
 #include "invaders.lh"
 
+namespace {
+
 #define CABINET_PORT_TAG                  "CAB"
 
 #define MW8080BW_MASTER_CLOCK             (19968000.0)
@@ -43,7 +45,6 @@ The multigame roms:
 
 // +4 is added to HBSTART because the hardware displays that many pixels after setting HBLANK
 #define MW8080BW_HPIXCOUNT                (MW8080BW_HBSTART + 4)
-#define INVADERS_CAB_TYPE_PORT_TAG      ("CAB")
 #define INVADERS_P1_CONTROL_PORT_TAG    ("CONTP1")
 #define INVADERS_P2_CONTROL_PORT_TAG    ("CONTP2")
 #define INVADERS_SW6_SW7_PORT_TAG       ("SW6SW7")
@@ -63,7 +64,7 @@ The multigame roms:
 	PORT_BIT( 0x04, IP_ACTIVE_HIGH, IPT_JOYSTICK_RIGHT ) PORT_2WAY PORT_PLAYER(player)
 
 #define INVADERS_CAB_TYPE_PORT \
-	PORT_START(INVADERS_CAB_TYPE_PORT_TAG) \
+	PORT_START("CAB") \
 	PORT_CONFNAME( 0x01, 0x00, DEF_STR( Cabinet ) ) \
 	PORT_CONFSETTING(    0x00, DEF_STR( Upright ) ) \
 	PORT_CONFSETTING(    0x01, DEF_STR( Cocktail ) )
@@ -80,7 +81,7 @@ public:
 		, m_main_ram(*this, "main_ram")
 		, m_screen(*this, "screen")
 		, m_player_controls(*this, "CONTP%u", 1U)
-		, m_cabinet_type(*this, INVADERS_CAB_TYPE_PORT_TAG)
+		, m_cabinet_type(*this, "CAB")
 		, m_sn(*this, "snsnd")
 		, m_samples(*this, "samples")
 		, m_palette(*this, "palette")
@@ -98,7 +99,6 @@ public:
 	DECLARE_CUSTOM_INPUT_MEMBER(invaders_in0_control_r);
 	DECLARE_CUSTOM_INPUT_MEMBER(invaders_in1_control_r);
 	DECLARE_CUSTOM_INPUT_MEMBER(invaders_in2_control_r);
-	DECLARE_CUSTOM_INPUT_MEMBER(sicv_in2_control_r);
 	DECLARE_CUSTOM_INPUT_MEMBER(invadpt2_in1_control_r);
 	DECLARE_CUSTOM_INPUT_MEMBER(invadpt2_in2_control_r);
 	IRQ_CALLBACK_MEMBER(interrupt_vector);
@@ -112,8 +112,6 @@ protected:
 	void invadpt2_sh_port_2_w(uint8_t data);
 
 	DECLARE_WRITE_LINE_MEMBER(int_enable_w);
-
-	u8 mw8080bw_shift_result_rev_r();
 
 	uint32_t screen_update_mw8080bw(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
 	uint32_t screen_update_invaders(screen_device &screen, bitmap_rgb32 &bitmap, const rectangle &cliprect);
@@ -341,13 +339,6 @@ void invaders_state::machine_reset()
  *  Special shifter circuit
  *
  *************************************/
-
-u8 invaders_state::mw8080bw_shift_result_rev_r()
-{
-	uint8_t ret = m_mb14241->shift_result_r();
-
-	return bitswap<8>(ret,0,1,2,3,4,5,6,7);
-}
 
 inline void invaders_state::set_pixel(bitmap_rgb32 &bitmap, uint8_t y, uint8_t x, int color)
 {
@@ -721,11 +712,6 @@ void invaders_state::invadpt2_sh_port_2_w(uint8_t data)
 /*                                                     */
 /*******************************************************/
 
-CUSTOM_INPUT_MEMBER(invaders_state::sicv_in2_control_r)
-{
-	return m_player_controls[is_cabinet_cocktail() ? 1 : 0]->read() | ioport("P2GATE")->read();
-}
-
 static INPUT_PORTS_START( sicv_base )
 	// common port definitions used by SICV and clones, based on sicv unless otherwise noted
 
@@ -839,7 +825,7 @@ static INPUT_PORTS_START( invadpt2 )
 	// P2 controls (read via IN2, and also via IN1 on upright cabinets)
 	INVADERS_CONTROL_PORT_P2
 
-	PORT_START(INVADERS_CAB_TYPE_PORT_TAG)
+	PORT_START("CAB")
 	PORT_DIPNAME( 0x07, 0x00, DEF_STR( Cabinet ) )  PORT_DIPLOCATION("SW1:5,6,7") // couples player inputs in upright mode
 	PORT_DIPSETTING(    0x00, DEF_STR( Upright ) )
 	PORT_DIPSETTING(    0x07, DEF_STR( Cocktail ) )
@@ -878,7 +864,7 @@ void invaders_state::invadpt2(machine_config &config)
 /*                                                     */
 /*******************************************************/
 
-static INPUT_PORTS_START( superinv )
+static INPUT_PORTS_START( sinvrdzm )
 	PORT_INCLUDE( sicv_base )
 
 	PORT_MODIFY("IN1")
@@ -886,11 +872,9 @@ static INPUT_PORTS_START( superinv )
 	PORT_BIT( 0x80, IP_ACTIVE_HIGH, IPT_COIN2 )
 
 	PORT_MODIFY("IN2")
-	PORT_DIPUNKNOWN_DIPLOC( 0x04, 0x00, "SW1:3" )
-	PORT_DIPNAME( 0x08, 0x00, DEF_STR( Bonus_Life ) )   PORT_DIPLOCATION("SW1:4")
-	PORT_DIPSETTING(    0x08, "1500" )
-	PORT_DIPSETTING(    0x00, "2500" )
-	PORT_DIPUNKNOWN_DIPLOC( 0x80, 0x00, "SW1:8" )
+	PORT_DIPNAME( 0x80, 0x00, DEF_STR( Coinage ) )      PORT_DIPLOCATION("SW1:8")
+	PORT_DIPSETTING(    0x80, DEF_STR( 2C_1C ) )
+	PORT_DIPSETTING(    0x00, DEF_STR( 1C_1C ) )
 INPUT_PORTS_END
 
 
@@ -1113,6 +1097,16 @@ ROM_START( sinvtest3 )
 	ROM_LOAD( "invaders.e",   0x1800, 0x0800, CRC(14e538b0) SHA1(1d6ca0c99f9df71e2990b610deb9d7da0125e2d8) )
 ROM_END
 
+ROM_START( sinvtest4 ) // for flip, turn on Cocktail mode in dips. Then button is a toggle and press 2 times per direction.
+	ROM_REGION( 0x10000, "maincpu", 0 )
+	ROM_LOAD( "sinvtest4.h",  0x0000, 0x0800, CRC(8218a7c0) SHA1(91ebc7958c952852d929b97cc98e6b6b301dd8ca) ) // Test rom
+	ROM_LOAD( "invaders.g",   0x0800, 0x0800, CRC(6bfaca4a) SHA1(16f48649b531bdef8c2d1446c429b5f414524350) )
+	ROM_LOAD( "invaders.f",   0x1000, 0x0800, CRC(0ccead96) SHA1(537aef03468f63c5b9e11dd61e253f7ae17d9743) )
+	ROM_LOAD( "invaders.e",   0x1800, 0x0800, CRC(14e538b0) SHA1(1d6ca0c99f9df71e2990b610deb9d7da0125e2d8) )
+
+	ROM_REGION( 0x0800, "proms", ROMREGION_ERASEFF ) // because using invadpt2
+ROM_END
+
 ROM_START( sinvrdzm )
 	ROM_REGION( 0x10000, "maincpu", 0 )
 	ROM_LOAD( "sinvrdzm.1",  0x0000, 0x0400, CRC(f625f153) SHA1(2a19f7b4f5687e89eebf02cfdf3d1d23624879fb) )
@@ -1195,6 +1189,7 @@ ROM_START( invmultip )
 	ROM_LOAD("s10.bin",  0x00000, 0x20000, CRC(1b43e4d3) SHA1(c50decd9caaec7f2d8b3ba74f718372d31bc1c3b) )
 ROM_END
 
+} // anonymous namespace
 
 GAMEL(1978, invaders,    0,        invaders,  invaders,  invaders_state, empty_init,    ROT270, "Taito / Midway",        "Space Invaders", MACHINE_SUPPORTS_SAVE, layout_invaders )
 GAME( 1978, tst_invd,    invaders, invadpt2,  invadpt2,  invaders_state, empty_init,    ROT0,   "Taito",                 "Space Invaders Test ROM", MACHINE_SUPPORTS_SAVE )
@@ -1203,7 +1198,8 @@ GAMEL(2013, sinvtest0,   invaders, invaders,  invaders,  invaders_state, empty_i
 GAMEL(2017, sinvtest1,   invaders, invaders,  invaders,  invaders_state, empty_init,    ROT270, "Fabrice Girardot",      "Space Invaders Test ROM (v1.1, 2017-09-17)", MACHINE_SUPPORTS_SAVE, layout_invaders )
 GAMEL(2017, sinvtest2,   invaders, invaders,  invaders,  invaders_state, empty_init,    ROT270, "Frederic Rodo",         "Space Invaders Test ROM (v1.2, 2017-10-14)", MACHINE_SUPPORTS_SAVE, layout_invaders )
 GAMEL(2019, sinvtest3,   invaders, invaders,  invaders,  invaders_state, empty_init,    ROT270, "Marc Deslauriers",      "Space Invaders Test ROM (v1.3, 2019-03-27)", MACHINE_SUPPORTS_SAVE, layout_invaders )
-GAMEL(1978, sinvrdzm,    invaders, invaders,  superinv,  invaders_state, empty_init,    ROT270, "Zenitone-Microsec Ltd", "Super Invaders (Ruffler & Deith)", MACHINE_SUPPORTS_SAVE, layout_invaders )
+GAME (2025, sinvtest4,   invaders, invadpt2,  invadpt2,  invaders_state, empty_init,    ROT0,   "Phil Murray",           "Space Invaders Test ROM (SMv1.1, 2025-07-11)", MACHINE_SUPPORTS_SAVE )
+GAMEL(1978, sinvrdzm,    invaders, invaders,  sinvrdzm,  invaders_state, empty_init,    ROT270, "Zenitone-Microsec Ltd", "Super Invaders (Ruffler & Deith)", MACHINE_SUPPORTS_SAVE, layout_invaders )
 GAME( 2002, invmulti,    0,        invmulti,  invmulti,  invmulti_state, init_invmulti, ROT270, "Braze Technologies",    "Space Invaders Multigame (M8.03D)", MACHINE_SUPPORTS_SAVE )
 GAME( 2002, invmultim3a, invmulti, invmulti,  invmulti,  invmulti_state, init_invmulti, ROT270, "Braze Technologies",    "Space Invaders Multigame (M8.03A)", MACHINE_SUPPORTS_SAVE )
 GAME( 2002, invmultim2c, invmulti, invmulti,  invmulti,  invmulti_state, init_invmulti, ROT270, "Braze Technologies",    "Space Invaders Multigame (M8.02C)", MACHINE_SUPPORTS_SAVE )

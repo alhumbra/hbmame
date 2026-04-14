@@ -43,10 +43,8 @@ class neogeo_state : public driver_device
 public:
 	neogeo_state(const machine_config &mconfig, device_type type, const char *tag)
 		: driver_device(mconfig, type, tag)
-		, m_use_cart_vectors(0)
-		, m_use_cart_audio(0)
-		, m_banked_cart(*this, "banked_cart")
 		, m_maincpu(*this, "maincpu")
+		, m_banked_cart(*this, "banked_cart")
 		, m_audiocpu(*this, "audiocpu")
 		, m_ym(*this, "ymsnd")
 		, m_region_maincpu(*this, "maincpu")
@@ -98,6 +96,7 @@ public:
 	void ngneo(machine_config &config);
 	void no_watchdog(machine_config &config);
 	void gsc(machine_config &config);
+	void gsc1(machine_config &config);
 
 	void init_bangbead();
 	void init_cdc();
@@ -129,7 +128,6 @@ public:
 	void init_kof2k2bd();
 	void init_kof2k2pl17();
 	void init_kof2k3fd();
-	void init_kof2k3hd();
 	void init_kof2k3pcd();
 	void init_kof2k4pls();
 	void init_kof2k4se();
@@ -207,6 +205,12 @@ public:
 	DECLARE_CUSTOM_INPUT_MEMBER(kizuna4p_start_r);
 	DECLARE_INPUT_CHANGED_MEMBER(select_bios);
 
+	// public for kf2k2ps2re
+	int m_use_cart_audio = 0;
+	void gsc_map(address_map &map);
+	virtual void machine_start() override;
+	required_device<cpu_device> m_maincpu;
+
 private:
 
 	u32 mvs_open7z(std::string zip_name, std::string filename, uint8_t *region_name, u32 region_size);
@@ -241,8 +245,8 @@ private:
 	void audio_map(address_map &map);
 	void audio_io_map(address_map &map);
 	void main_map_noslot(address_map &map);
-	void gsc_map(address_map &map);
 	void main_map1(address_map &map);
+	void gsc1_map(address_map &map);
 
 	void neogeo_postload();
 	void update_interrupts();
@@ -269,7 +273,6 @@ private:
 	void set_output_latch( u8 data );
 	void set_output_data( u8 data );
 
-	virtual void machine_start() override;
 	virtual void machine_reset() override;
 
 	memory_bank           *m_bank_audio_cart[4]{};
@@ -318,9 +321,7 @@ private:
 	void install_banked_bios();
 
 	int m_use_cart_vectors = 0;
-	int m_use_cart_audio = 0;
 	optional_device<neogeo_banked_cart_device> m_banked_cart;
-	required_device<cpu_device> m_maincpu;
 	required_device<cpu_device> m_audiocpu;
 	required_device<ym2610_device> m_ym;
 	required_memory_region m_region_maincpu;
@@ -398,6 +399,14 @@ INPUT_PORTS_EXTERN(dualbios);
 
 #define ROM_LOAD16_WORD_SWAP_BIOS(bios,name,offset,length,hash) \
 	ROMX_LOAD(name, offset, length, hash, ROM_GROUPWORD | ROM_REVERSE | ROM_BIOS(bios))
+
+#define NEOGEO_AESBIOS(x) \
+	ROM_SYSTEM_BIOS( x +0, "aes_asia", "Asia AES" ) \
+	ROM_LOAD16_WORD_SWAP_BIOS( x +0, "neo-epo.bin",  0x00000, 0x020000, CRC(d27a71f1) SHA1(1b3b22092f30c4d1b2c15f04d1670eb1e9fbea07) ) \
+	ROM_SYSTEM_BIOS( x +1, "aes_japan", "Japan AES" ) \
+	ROM_LOAD16_WORD_SWAP_BIOS( x +1, "neo-po.bin",   0x00000, 0x020000, CRC(16d0c132) SHA1(4e4a440cae46f3889d20234aebd7f8d5f522e22c) ) \
+	ROM_SYSTEM_BIOS( x +2, "aes_devel", "Development System ROM" ) \
+	ROM_LOAD16_WORD_SWAP_BIOS( x +2, "neodebug.rom", 0x00000, 0x020000, CRC(698ebb7d) SHA1(081c49aa8cc7dad5939833dc1b18338321ea0a07) )
 
 #define NEOGEO_UNIBIOS(x) \
 	ROM_SYSTEM_BIOS( x+ 0, "unibios40", "Universe Bios (Hack, Ver. 4.0)" ) \
@@ -487,6 +496,7 @@ INPUT_PORTS_EXTERN(dualbios);
 	/* NEOGEO_UNIBIOS_2(16) */ \
 	/* NEOGEO_UNIBIOS_1(16) */ \
 	/* NEOGEO_AES_BIOS(16) */ \
+	/* NEOGEO_AESBIOS(21) */ \
 	ROM_DEFAULT_BIOS("unibios40")
 
 

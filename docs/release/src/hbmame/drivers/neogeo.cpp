@@ -627,12 +627,6 @@ void neogeo_state::init_neogeo()
 	m_maincpu->space(AS_PROGRAM).install_read_handler(0x340000, 0x340001, 0, 0x01fffe, 0, read16smo_delegate(*this, FUNC(neogeo_state::in1_r)));
 	m_sprgen->set_sprite_region(m_region_sprites->base(), m_region_sprites->bytes());
 	m_sprgen->set_fixed_regions(m_region_fixed->base(), m_region_fixed->bytes(), m_region_fixedbios);
-	FILE *fp = fopen(".ym_size.tmp", "w");
-    if (fp) {
-        uint32_t ymsize = ym_region_size;
-        fprintf(fp, "%x", ymsize);  // 以十六進制文本形式寫入
-        fclose(fp);
-    }
 }
 
 
@@ -976,8 +970,8 @@ void neogeo_state::neogeo_base(machine_config &config)
 
 	YM2610(config, m_ym, NEOGEO_YM2610_CLOCK);
 	m_ym->irq_handler().set_inputline(m_audiocpu, 0);
-	m_ym->add_route(0, "lspeaker", 0.28);
-	m_ym->add_route(0, "rspeaker", 0.28);
+	m_ym->add_route(0, "lspeaker", 0.84);
+	m_ym->add_route(0, "rspeaker", 0.84);
 	m_ym->add_route(1, "lspeaker", 0.98);
 	m_ym->add_route(2, "rspeaker", 0.98);
 	NEOGEO_BANKED_CART(config, "banked_cart");
@@ -1132,6 +1126,18 @@ void neogeo_state::gsc(machine_config &config)
 {
 	neogeo_noslot(config);
 	m_maincpu->set_addrmap(AS_PROGRAM, &neogeo_state::gsc_map);
+}
+
+void neogeo_state::gsc1_map(address_map &map)
+{
+	main_map_noslot(map);
+	map(0x900000,0x9fffff).rom().region("gsc", 0);  // extra rom
+}
+
+void neogeo_state::gsc1(machine_config &config)
+{
+	neogeo_noslot(config);
+	m_maincpu->set_addrmap(AS_PROGRAM, &neogeo_state::gsc1_map);
 }
 
 
@@ -1618,6 +1624,9 @@ void neogeo_state::init_vliner()
 
 	m_sprgen->m_fixed_layer_bank_type = 0;
 
+	m_sprgen->set_sprite_region(m_region_sprites->base(), m_region_sprites->bytes());
+	m_sprgen->set_fixed_regions(m_region_fixed->base(), m_region_fixed->bytes(), m_region_fixedbios);
+
 	m_extra_ram = std::make_unique<uint16_t[]>(0x1000);
 	m_maincpu->space(AS_PROGRAM).install_ram(0x200000, 0x201fff, m_extra_ram.get());
 	save_pointer(NAME(m_extra_ram), 0x1000);
@@ -2082,6 +2091,82 @@ QUICKLOAD_LOAD_MEMBER(neogeo_state::neo_q_cb)
 	printf("csize=%X\n",csize);fflush(stdout);
 	if (csize)
 		image.fread(&spr_region[0],csize);
+
+// Save the file parts if needed
+#if 0
+	FILE *f;
+	if (psize)
+	{
+		f = fopen("555.p1", "wb");
+		if (!f)
+		{
+			printf("Error opening file '555.p1'\n");
+			return image_init_result::FAIL;
+		}
+		fwrite(&cpuregion[0], 1, psize, f);
+		fclose(f);
+	}
+
+	if (ssize)
+	{
+		f = fopen("555.s1", "wb");
+		if (!f)
+		{
+			printf("Error opening file '555.s1'\n");
+			return image_init_result::FAIL;
+		}
+		fwrite(&fix_region[0], 1, ssize, f);
+		fclose(f);
+	}
+
+	if (msize)
+	{
+		f = fopen("555.m1", "wb");
+		if (!f)
+		{
+			printf("Error opening file '555.m1'\n");
+			return image_init_result::FAIL;
+		}
+		fwrite(&audiocpu_region[0x10000], 1, msize, f);
+		fclose(f);
+	}
+
+	if (vsize)
+	{
+		f = fopen("555.v1", "wb");
+		if (!f)
+		{
+			printf("Error opening file '555.v1'\n");
+			return image_init_result::FAIL;
+		}
+		fwrite(&ym_region[0], 1, vsize, f);
+		fclose(f);
+	}
+
+	if (v2size)
+	{
+		f = fopen("555.v21", "wb");
+		if (!f)
+		{
+			printf("Error opening file '555.v21'\n");
+			return image_init_result::FAIL;
+		}
+		fwrite(&memregion("ymsnd:adpcmb")->base()[0], 1, v2size, f);
+		fclose(f);
+	}
+
+	if (csize)
+	{
+		f = fopen("555.c1", "wb");
+		if (!f)
+		{
+			printf("Error opening file '555.c1'\n");
+			return image_init_result::FAIL;
+		}
+		fwrite(&spr_region[0], 1, csize, f);
+		fclose(f);
+	}
+#endif
 
 	// Prepare the system
 	printf("Ready to start\n");fflush(stdout);
